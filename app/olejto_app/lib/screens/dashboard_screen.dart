@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/vehicle_models.dart';
+import 'reminder_center_screen.dart';
 import '../theme/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -34,6 +35,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ),
   ];
 
+  late List<ReminderTask> _reminderTasks;
+
+  @override
+  void initState() {
+    super.initState();
+    _reminderTasks = _seedReminderTasks();
+  }
+
+  List<ReminderTask> _seedReminderTasks() {
+    final now = DateTime.now();
+
+    return [
+      ReminderTask(
+        id: 'r1',
+        vehicleName: 'BMW E90',
+        vehiclePlate: 'WA 4821K',
+        type: ReminderType.oilCheck,
+        dueDate: DateTime(now.year, now.month, now.day),
+        dueMileage: 214500,
+        status: ServiceStatus.soon,
+      ),
+      ReminderTask(
+        id: 'r2',
+        vehicleName: 'BMW E90',
+        vehiclePlate: 'WA 4821K',
+        type: ReminderType.oilChange,
+        dueDate: DateTime(now.year, now.month, now.day).subtract(const Duration(days: 2)),
+        dueMileage: 215000,
+        status: ServiceStatus.urgent,
+      ),
+      ReminderTask(
+        id: 'r3',
+        vehicleName: 'Skoda Octavia',
+        vehiclePlate: 'WPR 9A21',
+        type: ReminderType.inspection,
+        dueDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 9)),
+        status: ServiceStatus.soon,
+      ),
+      ReminderTask(
+        id: 'r4',
+        vehicleName: 'Skoda Octavia',
+        vehiclePlate: 'WPR 9A21',
+        type: ReminderType.lpgInspection,
+        dueDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 22)),
+        status: ServiceStatus.ok,
+      ),
+    ];
+  }
+
+  void _completeReminder(String id) {
+    setState(() {
+      _reminderTasks = _reminderTasks
+          .map((task) => task.id == id
+              ? task.copyWith(isCompleted: true, completedAt: DateTime.now())
+              : task)
+          .toList();
+    });
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Przypomnienie oznaczone jako wykonane')),
+    );
+  }
+
   Color _statusColor(ServiceStatus status) {
     switch (status) {
       case ServiceStatus.ok:
@@ -57,26 +125,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<ReminderItem> _buildReminders() {
-    if (_vehicles.isEmpty) {
+    final activeTasks = _reminderTasks.where((task) => !task.isCompleted).toList();
+
+    if (activeTasks.isEmpty) {
       return const [
         ReminderItem(
-          title: 'Dodaj pierwsze auto',
-          subtitle: 'Powiadomienia pojawia sie po dodaniu pojazdu',
+          title: 'Brak aktywnych przypomnien',
+          subtitle: 'Swietnie, wszystko masz ogarniete',
           status: ServiceStatus.ok,
           icon: Icons.info_outline,
         ),
       ];
     }
 
-    final sorted = [..._vehicles]..sort((a, b) => a.kilometersLeft.compareTo(b.kilometersLeft));
-    return sorted.take(3).map((vehicle) {
+    final sorted = [...activeTasks]..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    return sorted.take(3).map((task) {
       return ReminderItem(
-        title: '${vehicle.name}: wymiana oleju',
-        subtitle: 'Za okolo ${vehicle.kilometersLeft} km',
-        status: vehicle.status,
-        icon: Icons.oil_barrel_outlined,
+        title: '${task.vehicleName}: ${reminderTypeLabel(task.type)}',
+        subtitle: 'Termin: ${task.dueDate.day.toString().padLeft(2, '0')}.${task.dueDate.month.toString().padLeft(2, '0')}.${task.dueDate.year}',
+        status: task.status,
+        icon: _reminderTypeIcon(task.type),
       );
     }).toList();
+  }
+
+  IconData _reminderTypeIcon(ReminderType type) {
+    switch (type) {
+      case ReminderType.oilCheck:
+        return Icons.opacity_outlined;
+      case ReminderType.oilChange:
+        return Icons.oil_barrel_outlined;
+      case ReminderType.inspection:
+        return Icons.fact_check_outlined;
+      case ReminderType.lpgInspection:
+        return Icons.local_gas_station_outlined;
+    }
   }
 
   Future<void> _openAddVehicleForm() async {
@@ -90,6 +173,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     setState(() {
       _vehicles.add(vehicle);
+      _reminderTasks.addAll([
+        ReminderTask(
+          id: 'v-${_vehicles.length}-oil-check-${DateTime.now().millisecondsSinceEpoch}',
+          vehicleName: vehicle.name,
+          vehiclePlate: vehicle.plate,
+          type: ReminderType.oilCheck,
+          dueDate: DateTime.now().add(const Duration(days: 21)),
+          dueMileage: vehicle.currentMileage + 800,
+          status: ServiceStatus.soon,
+        ),
+        ReminderTask(
+          id: 'v-${_vehicles.length}-oil-change-${DateTime.now().millisecondsSinceEpoch + 1}',
+          vehicleName: vehicle.name,
+          vehiclePlate: vehicle.plate,
+          type: ReminderType.oilChange,
+          dueDate: DateTime.now().add(const Duration(days: 45)),
+          dueMileage: vehicle.currentMileage + 3000,
+          status: ServiceStatus.ok,
+        ),
+      ]);
     });
 
     if (!mounted) {
@@ -106,6 +209,104 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final soonCount = _vehicles.where((v) => v.status == ServiceStatus.soon).length;
     final urgentCount = _vehicles.where((v) => v.status == ServiceStatus.urgent).length;
     final reminders = _buildReminders();
+
+    Widget bodyContent;
+    switch (_navIndex) {
+      case 1:
+        bodyContent = SafeArea(
+          child: ReminderCenterScreen(
+            tasks: _reminderTasks,
+            onComplete: _completeReminder,
+          ),
+        );
+      case 2:
+        bodyContent = const SafeArea(child: _SettingsPlaceholder());
+      default:
+        bodyContent = SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                  child: _HeroCard(
+                    vehicleCount: _vehicles.length,
+                    soonCount: soonCount,
+                    urgentCount: urgentCount,
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: _QuickActions(onAddVehicle: _openAddVehicleForm),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: _SectionTitle(
+                    title: 'Twoje auta',
+                    trailing: TextButton(
+                      onPressed: () {},
+                      child: const Text('Zobacz wszystko'),
+                    ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                sliver: _vehicles.isEmpty
+                    ? SliverToBoxAdapter(
+                        child: _EmptyVehiclesState(onAddPressed: _openAddVehicleForm),
+                      )
+                    : SliverList.separated(
+                        itemBuilder: (context, index) {
+                          final vehicle = _vehicles[index];
+                          return _VehicleCard(
+                            vehicle: vehicle,
+                            statusColor: _statusColor(vehicle.status),
+                            statusLabel: _statusLabel(vehicle.status),
+                          );
+                        },
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemCount: _vehicles.length,
+                      ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                  child: _SectionTitle(
+                    title: 'Nadchodzace przypomnienia',
+                    trailing: IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _navIndex = 1;
+                        });
+                      },
+                      icon: const Icon(Icons.arrow_forward),
+                    ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+                sliver: SliverList.separated(
+                  itemBuilder: (context, index) {
+                    final item = reminders[index];
+                    return _ReminderTile(
+                      item: item,
+                      statusColor: _statusColor(item.status),
+                      statusLabel: _statusLabel(item.status),
+                    );
+                  },
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemCount: reminders.length,
+                ),
+              ),
+            ],
+          ),
+        );
+    }
 
     return Scaffold(
       body: Stack(
@@ -126,95 +327,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               colors: const [Color(0x1FD39F2A), Color(0x00D39F2A)],
             ),
           ),
-          SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                    child: _HeroCard(
-                      vehicleCount: _vehicles.length,
-                      soonCount: soonCount,
-                      urgentCount: urgentCount,
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: _QuickActions(onAddVehicle: _openAddVehicleForm),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: _SectionTitle(
-                      title: 'Twoje auta',
-                      trailing: TextButton(
-                        onPressed: () {},
-                        child: const Text('Zobacz wszystko'),
-                      ),
-                    ),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                  sliver: _vehicles.isEmpty
-                      ? SliverToBoxAdapter(
-                          child: _EmptyVehiclesState(onAddPressed: _openAddVehicleForm),
-                        )
-                      : SliverList.separated(
-                          itemBuilder: (context, index) {
-                            final vehicle = _vehicles[index];
-                            return _VehicleCard(
-                              vehicle: vehicle,
-                              statusColor: _statusColor(vehicle.status),
-                              statusLabel: _statusLabel(vehicle.status),
-                            );
-                          },
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemCount: _vehicles.length,
-                        ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                    child: _SectionTitle(
-                      title: 'Nadchodzace przypomnienia',
-                      trailing: IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.tune),
-                      ),
-                    ),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
-                  sliver: SliverList.separated(
-                    itemBuilder: (context, index) {
-                      final item = reminders[index];
-                      return _ReminderTile(
-                        item: item,
-                        statusColor: _statusColor(item.status),
-                        statusLabel: _statusLabel(item.status),
-                      );
-                    },
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemCount: reminders.length,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          bodyContent,
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddVehicleForm,
-        backgroundColor: AppTheme.primaryGreen,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Dodaj auto'),
-      ),
+      floatingActionButton: _navIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: _openAddVehicleForm,
+              backgroundColor: AppTheme.primaryGreen,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Dodaj auto'),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndex,
         onDestinationSelected: (index) {
@@ -224,7 +348,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.history), label: 'Historia'),
+          NavigationDestination(icon: Icon(Icons.notifications_active_outlined), label: 'Reminder'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Ustawienia'),
         ],
       ),
@@ -736,6 +860,41 @@ class _BgBlob extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(colors: colors),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsPlaceholder extends StatelessWidget {
+  const _SettingsPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.settings_suggest_outlined,
+              size: 54,
+              color: AppTheme.primaryGreen,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Ustawienia pojawia sie tutaj',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Kolejny krok: preferencje przypomnien, plan premium i eksport historii.',
+              style: TextStyle(color: Colors.grey.shade700),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
