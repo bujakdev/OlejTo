@@ -1,0 +1,25 @@
+# OlejTo Docs Hub
+
+Ten katalog zawiera kompletna dokumentacje projektu OlejTo (Flutter).
+
+## Kolejnosc czytania
+
+1. [01_PRODUCT_BRIEF.md](01_PRODUCT_BRIEF.md)
+2. [02_MVP_SCOPE.md](02_MVP_SCOPE.md)
+3. [03_ARCHITECTURE.md](03_ARCHITECTURE.md)
+4. [04_IMPLEMENTATION_PLAN_12_WEEKS.md](04_IMPLEMENTATION_PLAN_12_WEEKS.md)
+5. [05_ENV_SETUP_VSCODE.md](05_ENV_SETUP_VSCODE.md)
+6. [06_AI_WORKFLOW_CHATGPT_CLAUDE.md](06_AI_WORKFLOW_CHATGPT_CLAUDE.md)
+7. [07_DATA_MODEL.md](07_DATA_MODEL.md)
+8. [08_NOTIFICATIONS_AND_PAYWALL.md](08_NOTIFICATIONS_AND_PAYWALL.md)
+9. [09_TESTING_RELEASE_OPS.md](09_TESTING_RELEASE_OPS.md)
+10. [10_BACKLOG_AND_NEXT_STEPS.md](10_BACKLOG_AND_NEXT_STEPS.md)
+11. [11_IOS_INFRA_ON_WINDOWS.md](11_IOS_INFRA_ON_WINDOWS.md)
+12. [12_GITHUB_ACTIONS_IOS_RUNBOOK.md](12_GITHUB_ACTIONS_IOS_RUNBOOK.md)
+13. [13_APPLE_SIGNING_CHECKLIST.md](13_APPLE_SIGNING_CHECKLIST.md)
+
+## Zasada pracy
+
+- Projekt prowadzimy jako Android + iOS od startu.
+- iOS build/release realizujemy przez Mac lub CI (Codemagic/GitHub Actions macOS).
+- Kazdy etap konczymy dzialajacym buildem i checklista DONE.
