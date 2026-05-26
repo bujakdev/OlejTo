@@ -4,15 +4,57 @@ void main() {
   runApp(const MainApp());
 }
 
+enum ServiceStatus { ok, soon, urgent }
+
+class VehicleOverview {
+  const VehicleOverview({
+    required this.name,
+    required this.plate,
+    required this.currentMileage,
+    required this.kilometersLeft,
+    required this.oilHealth,
+    required this.status,
+  });
+
+  final String name;
+  final String plate;
+  final int currentMileage;
+  final int kilometersLeft;
+  final double oilHealth;
+  final ServiceStatus status;
+}
+
+class ReminderItem {
+  const ReminderItem({
+    required this.title,
+    required this.subtitle,
+    required this.status,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final ServiceStatus status;
+  final IconData icon;
+}
+
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    const primaryGreen = Color(0xFF1F7A58);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2D6A4F)),
+        colorScheme: ColorScheme.fromSeed(seedColor: primaryGreen),
+        scaffoldBackgroundColor: const Color(0xFFF4F7F3),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
         useMaterial3: true,
       ),
       home: const DashboardScreen(),
@@ -23,39 +65,395 @@ class MainApp extends StatelessWidget {
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
+  static const vehicles = <VehicleOverview>[
+    VehicleOverview(
+      name: 'BMW E90',
+      plate: 'WA 4821K',
+      currentMileage: 214350,
+      kilometersLeft: 980,
+      oilHealth: 0.62,
+      status: ServiceStatus.soon,
+    ),
+    VehicleOverview(
+      name: 'Skoda Octavia',
+      plate: 'WPR 9A21',
+      currentMileage: 128040,
+      kilometersLeft: 2410,
+      oilHealth: 0.81,
+      status: ServiceStatus.ok,
+    ),
+  ];
+
+  static const reminders = <ReminderItem>[
+    ReminderItem(
+      title: 'BMW E90: wymiana oleju',
+      subtitle: 'Za okolo 980 km',
+      status: ServiceStatus.soon,
+      icon: Icons.oil_barrel_outlined,
+    ),
+    ReminderItem(
+      title: 'Skoda Octavia: przeglad',
+      subtitle: 'Za 21 dni',
+      status: ServiceStatus.ok,
+      icon: Icons.event_note_outlined,
+    ),
+  ];
+
+  Color _statusColor(ServiceStatus status) {
+    switch (status) {
+      case ServiceStatus.ok:
+        return const Color(0xFF1D9B5F);
+      case ServiceStatus.soon:
+        return const Color(0xFFE3A11A);
+      case ServiceStatus.urgent:
+        return const Color(0xFFD64545);
+    }
+  }
+
+  String _statusLabel(ServiceStatus status) {
+    switch (status) {
+      case ServiceStatus.ok:
+        return 'OK';
+      case ServiceStatus.soon:
+        return 'Wkrotce';
+      case ServiceStatus.urgent:
+        return 'Pilne';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final soonCount = vehicles.where((v) => v.status == ServiceStatus.soon).length;
+    final urgentCount =
+        vehicles.where((v) => v.status == ServiceStatus.urgent).length;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('OlejTo'),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1F7A58), Color(0xFF58A47A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x331F7A58),
+                    blurRadius: 22,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 22,
+                        backgroundColor: Color(0x33FFFFFF),
+                        child: Icon(Icons.oil_barrel, color: Colors.white),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'OlejTo',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {},
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0x24FFFFFF),
+                        ),
+                        icon: const Icon(Icons.notifications_none, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Dbaj o serwis bez stresu',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Wszystkie auta i przypomnienia w jednym miejscu.',
+                    style: TextStyle(color: Color(0xD9FFFFFF), fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _MetricChip(label: 'Auta', value: '${vehicles.length}'),
+                      const SizedBox(width: 8),
+                      _MetricChip(label: 'Wkrotce', value: '$soonCount'),
+                      const SizedBox(width: 8),
+                      _MetricChip(label: 'Pilne', value: '$urgentCount'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Text(
+                  'Twoje auta',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                TextButton(onPressed: () {}, child: const Text('Zobacz wszystko')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final vehicle in vehicles) ...[
+              _VehicleCard(
+                vehicle: vehicle,
+                statusColor: _statusColor(vehicle.status),
+                statusLabel: _statusLabel(vehicle.status),
+              ),
+              const SizedBox(height: 12),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  'Nadchodzace przypomnienia',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            for (final item in reminders) ...[
+              _ReminderTile(
+                item: item,
+                statusColor: _statusColor(item.status),
+                statusLabel: _statusLabel(item.status),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {},
+        backgroundColor: const Color(0xFF1F7A58),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Dodaj auto'),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 0,
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'Historia'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Ustawienia'),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0x24FFFFFF),
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              'Dashboard',
-              style: Theme.of(context).textTheme.headlineSmall,
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
             ),
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.directions_car)),
-                title: const Text('BMW E90'),
-                subtitle: const Text('Status oleju: OK • 62%'),
-                trailing: FilledButton(
-                  onPressed: () {},
-                  child: const Text('Szczegoly'),
-                ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(color: Color(0xD9FFFFFF), fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VehicleCard extends StatelessWidget {
+  const _VehicleCard({
+    required this.vehicle,
+    required this.statusColor,
+    required this.statusLabel,
+  });
+
+  final VehicleOverview vehicle;
+  final Color statusColor;
+  final String statusLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 62,
+              height: 62,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: vehicle.oilHealth,
+                    strokeWidth: 7,
+                    backgroundColor: const Color(0xFFEDF2EE),
+                    valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                  ),
+                  Text(
+                    '${(vehicle.oilHealth * 100).round()}%',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          vehicle.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${vehicle.plate}  •  ${vehicle.currentMileage} km',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Do wymiany: ${vehicle.kilometersLeft} km',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class _ReminderTile extends StatelessWidget {
+  const _ReminderTile({
+    required this.item,
+    required this.statusColor,
+    required this.statusLabel,
+  });
+
+  final ReminderItem item;
+  final Color statusColor;
+  final String statusLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: statusColor.withValues(alpha: 0.12),
+            child: Icon(item.icon, color: statusColor, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.subtitle,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            statusLabel,
+            style: TextStyle(
+              color: statusColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
