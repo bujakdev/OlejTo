@@ -20,6 +20,7 @@
 - [docs/11_IOS_INFRA_ON_WINDOWS.md](docs/11_IOS_INFRA_ON_WINDOWS.md) — iOS infra na Windows (Codemagic vs GitHub Actions)
 - [docs/12_GITHUB_ACTIONS_IOS_RUNBOOK.md](docs/12_GITHUB_ACTIONS_IOS_RUNBOOK.md) — runbook wdrozenia iOS CI (GitHub Actions)
 - [docs/13_APPLE_SIGNING_CHECKLIST.md](docs/13_APPLE_SIGNING_CHECKLIST.md) — checklista Apple Signing krok po kroku
+- [docs/14_REMINDER_FIRST_PRODUCT.md](docs/14_REMINDER_FIRST_PRODUCT.md) — kierunek reminder-first i monetyzacja
 
 ---
 
