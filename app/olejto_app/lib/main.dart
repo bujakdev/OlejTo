@@ -62,11 +62,16 @@ class MainApp extends StatelessWidget {
   }
 }
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
-  static const vehicles = <VehicleOverview>[
-    VehicleOverview(
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final List<VehicleOverview> _vehicles = [
+    const VehicleOverview(
       name: 'BMW E90',
       plate: 'WA 4821K',
       currentMileage: 214350,
@@ -74,7 +79,7 @@ class DashboardScreen extends StatelessWidget {
       oilHealth: 0.62,
       status: ServiceStatus.soon,
     ),
-    VehicleOverview(
+    const VehicleOverview(
       name: 'Skoda Octavia',
       plate: 'WPR 9A21',
       currentMileage: 128040,
@@ -84,20 +89,30 @@ class DashboardScreen extends StatelessWidget {
     ),
   ];
 
-  static const reminders = <ReminderItem>[
-    ReminderItem(
-      title: 'BMW E90: wymiana oleju',
-      subtitle: 'Za okolo 980 km',
-      status: ServiceStatus.soon,
-      icon: Icons.oil_barrel_outlined,
-    ),
-    ReminderItem(
-      title: 'Skoda Octavia: przeglad',
-      subtitle: 'Za 21 dni',
-      status: ServiceStatus.ok,
-      icon: Icons.event_note_outlined,
-    ),
-  ];
+  List<ReminderItem> _buildReminders() {
+    if (_vehicles.isEmpty) {
+      return const [
+        ReminderItem(
+          title: 'Dodaj pierwsze auto',
+          subtitle: 'Po dodaniu pojazdu przypomnienia pojawia sie tutaj',
+          status: ServiceStatus.ok,
+          icon: Icons.info_outline,
+        ),
+      ];
+    }
+
+    final sortedVehicles = [..._vehicles]
+      ..sort((a, b) => a.kilometersLeft.compareTo(b.kilometersLeft));
+
+    return sortedVehicles.take(3).map((vehicle) {
+      return ReminderItem(
+        title: '${vehicle.name}: wymiana oleju',
+        subtitle: 'Za okolo ${vehicle.kilometersLeft} km',
+        status: vehicle.status,
+        icon: Icons.oil_barrel_outlined,
+      );
+    }).toList();
+  }
 
   Color _statusColor(ServiceStatus status) {
     switch (status) {
@@ -121,11 +136,33 @@ class DashboardScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _openAddVehicleForm() async {
+    final newVehicle = await Navigator.of(context).push<VehicleOverview>(
+      MaterialPageRoute(builder: (_) => const AddVehicleScreen()),
+    );
+
+    if (newVehicle == null) {
+      return;
+    }
+
+    setState(() {
+      _vehicles.add(newVehicle);
+    });
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Dodano pojazd: ${newVehicle.name}')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final soonCount = vehicles.where((v) => v.status == ServiceStatus.soon).length;
-    final urgentCount =
-        vehicles.where((v) => v.status == ServiceStatus.urgent).length;
+    final soonCount = _vehicles.where((v) => v.status == ServiceStatus.soon).length;
+    final urgentCount = _vehicles.where((v) => v.status == ServiceStatus.urgent).length;
+    final reminders = _buildReminders();
 
     return Scaffold(
       body: SafeArea(
@@ -195,7 +232,7 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _MetricChip(label: 'Auta', value: '${vehicles.length}'),
+                      _MetricChip(label: 'Auta', value: '${_vehicles.length}'),
                       const SizedBox(width: 8),
                       _MetricChip(label: 'Wkrotce', value: '$soonCount'),
                       const SizedBox(width: 8),
@@ -220,14 +257,17 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            for (final vehicle in vehicles) ...[
-              _VehicleCard(
-                vehicle: vehicle,
-                statusColor: _statusColor(vehicle.status),
-                statusLabel: _statusLabel(vehicle.status),
-              ),
-              const SizedBox(height: 12),
-            ],
+            if (_vehicles.isEmpty)
+              _EmptyVehiclesState(onAddPressed: _openAddVehicleForm)
+            else
+              for (final vehicle in _vehicles) ...[
+                _VehicleCard(
+                  vehicle: vehicle,
+                  statusColor: _statusColor(vehicle.status),
+                  statusLabel: _statusLabel(vehicle.status),
+                ),
+                const SizedBox(height: 12),
+              ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -253,7 +293,7 @@ class DashboardScreen extends StatelessWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: _openAddVehicleForm,
         backgroundColor: const Color(0xFF1F7A58),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
@@ -265,6 +305,211 @@ class DashboardScreen extends StatelessWidget {
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
           NavigationDestination(icon: Icon(Icons.history), label: 'Historia'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Ustawienia'),
+        ],
+      ),
+    );
+  }
+}
+
+class AddVehicleScreen extends StatefulWidget {
+  const AddVehicleScreen({super.key});
+
+  @override
+  State<AddVehicleScreen> createState() => _AddVehicleScreenState();
+}
+
+class _AddVehicleScreenState extends State<AddVehicleScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _plateController = TextEditingController();
+  final _mileageController = TextEditingController();
+  final _kilometersLeftController = TextEditingController(text: '1500');
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _plateController.dispose();
+    _mileageController.dispose();
+    _kilometersLeftController.dispose();
+    super.dispose();
+  }
+
+  ServiceStatus _mapStatus(int kilometersLeft) {
+    if (kilometersLeft < 300) {
+      return ServiceStatus.urgent;
+    }
+    if (kilometersLeft <= 1000) {
+      return ServiceStatus.soon;
+    }
+    return ServiceStatus.ok;
+  }
+
+  double _mapHealth(int kilometersLeft) {
+    final value = kilometersLeft / 3000;
+    return value.clamp(0.06, 1.0);
+  }
+
+  void _saveVehicle() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final mileage = int.parse(_mileageController.text.trim());
+    final kilometersLeft = int.parse(_kilometersLeftController.text.trim());
+
+    final vehicle = VehicleOverview(
+      name: _nameController.text.trim(),
+      plate: _plateController.text.trim().toUpperCase(),
+      currentMileage: mileage,
+      kilometersLeft: kilometersLeft,
+      oilHealth: _mapHealth(kilometersLeft),
+      status: _mapStatus(kilometersLeft),
+    );
+
+    Navigator.of(context).pop(vehicle);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Dodaj auto')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Uzupelnij dane pojazdu',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'To tylko chwila. Potem dostaniesz przypomnienia o serwisie.',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 18),
+                TextFormField(
+                  controller: _nameController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Nazwa auta (np. BMW E90)',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Podaj nazwe pojazdu';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _plateController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Tablica rejestracyjna',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Podaj tablice';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _mileageController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Aktualny przebieg (km)',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    final parsed = int.tryParse(value?.trim() ?? '');
+                    if (parsed == null || parsed <= 0) {
+                      return 'Podaj poprawny przebieg';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _kilometersLeftController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    labelText: 'Ile km do wymiany oleju',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    final parsed = int.tryParse(value?.trim() ?? '');
+                    if (parsed == null || parsed < 0) {
+                      return 'Podaj poprawna liczbe km';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saveVehicle,
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Zapisz pojazd'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyVehiclesState extends StatelessWidget {
+  const _EmptyVehiclesState({required this.onAddPressed});
+
+  final VoidCallback onAddPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.directions_car_outlined, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            'Nie masz jeszcze pojazdu',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Dodaj pierwsze auto i zacznij monitorowac terminy wymiany.',
+            style: TextStyle(color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onAddPressed,
+            icon: const Icon(Icons.add),
+            label: const Text('Dodaj pierwsze auto'),
+          ),
         ],
       ),
     );
